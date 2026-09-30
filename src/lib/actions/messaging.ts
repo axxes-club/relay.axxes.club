@@ -11,6 +11,7 @@ import {
 import { eq, and, desc, sql, inArray, ne, isNull } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
+import { assertConversationAccess } from "@/lib/messaging-access"
 import { getAuthContext } from "@/lib/auth"
 import {
   getPusherServer,
@@ -147,7 +148,8 @@ export async function getConversations() {
 
 // Get single conversation with messages
 export async function getConversation(conversationId: string) {
-  const { userId } = await getAuthContext()
+  const { userId, tenantId } = await getAuthContext()
+  await assertConversationAccess(conversationId, userId, tenantId)
 
   // Verify participation
   const participant = await db.query.conversationParticipants.findFirst({
@@ -198,16 +200,6 @@ export async function createConversation(data: CreateConversationData) {
   const parsed = createConversationSchema.parse(data)
   const allParticipantIds = [...new Set([userId, ...parsed.participantIds])]
 
-  // For direct messages, check if conversation exists
-  if (parsed.type === "direct" && allParticipantIds.length === 2) {
-    const existing = await findExistingDirectConversation(
-      tenantId,
-      allParticipantIds[0],
-      allParticipantIds[1]
-    )
-    if (existing) return existing
-  }
-
   // Verify all participants are tenant members
   const memberships = await db.query.tenantMemberships.findMany({
     where: and(
@@ -220,6 +212,17 @@ export async function createConversation(data: CreateConversationData) {
   if (memberships.length !== allParticipantIds.length) {
     throw new Error("Some participants are not team members")
   }
+
+  // For direct messages, check if conversation exists
+  if (parsed.type === "direct" && allParticipantIds.length === 2) {
+    const existing = await findExistingDirectConversation(
+      tenantId,
+      allParticipantIds[0],
+      allParticipantIds[1]
+    )
+    if (existing) return existing
+  }
+
 
   // Create conversation
   const [conversation] = await db
@@ -241,7 +244,7 @@ export async function createConversation(data: CreateConversationData) {
     }))
   )
 
-  revalidatePath("/messages")
+  revalidatePath("/inbox")
   return conversation
 }
 
@@ -252,7 +255,12 @@ export async function sendMessage(
 ) {
   const { userId, tenantId } = await getAuthContext()
 
+  await assertConversationAccess(conversationId, userId, tenantId)
   const parsed = sendMessageSchema.parse(data)
+  if (parsed.replyToId) {
+    const reply = await db.query.messages.findFirst({ where: and(eq(messages.id, parsed.replyToId), eq(messages.conversationId, conversationId), eq(messages.tenantId, tenantId), isNull(messages.deletedAt)) })
+    if (!reply) throw new Error("Reply message not found")
+  }
 
   // Verify participation
   const participant = await db.query.conversationParticipants.findFirst({
@@ -358,13 +366,14 @@ export async function sendMessage(
     console.error("Pusher trigger failed:", error)
   }
 
-  revalidatePath(`/messages/${conversationId}`)
+  revalidatePath(`/inbox/${conversationId}`)
   return messageWithSender
 }
 
 // Mark conversation as read
 export async function markAsRead(conversationId: string) {
-  const { userId } = await getAuthContext()
+  const { userId, tenantId } = await getAuthContext()
+  await assertConversationAccess(conversationId, userId, tenantId)
 
   const latestMessage = await db.query.messages.findFirst({
     where: and(
@@ -405,7 +414,7 @@ export async function markAsRead(conversationId: string) {
     console.error("Pusher trigger failed:", error)
   }
 
-  revalidatePath("/messages")
+  revalidatePath("/inbox")
 }
 
 // Get total unread count

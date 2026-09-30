@@ -3,8 +3,6 @@ import { resolveAuthBaseURL } from "./base-url"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { db } from "@/lib/db"
 import { loginActivity } from "@/lib/db/schema"
-import { cookies } from "next/headers"
-import { redirect } from "next/navigation"
 import { sendPasswordResetEmail } from "@/lib/email"
 
 // With Handshake (handshake.axxes.club), every *.axxes.club app shares one session cookie
@@ -84,31 +82,9 @@ export const auth = betterAuth({
 })
 
 export async function getAuthContext() {
-  const cookieStore = await cookies()
-  const tenantId = cookieStore.get("tenant_id")?.value
-
-  // Build cookie header string from all cookies
-  const cookieHeader = cookieStore
-    .getAll()
-    .map((c) => `${c.name}=${c.value}`)
-    .join("; ")
-
-  // Get session from Better Auth
-  const session = await auth.api.getSession({
-    headers: new Headers({
-      cookie: cookieHeader,
-    }),
-  })
-
-  if (!session?.user) {
-    redirect("/sign-in")
-  }
-
-  if (!tenantId) {
-    redirect("/onboarding")
-  }
-
-  return { userId: session.user.id, tenantId }
+  const { requireContext } = await import("@/lib/context")
+  const ctx = await requireContext()
+  return { userId: ctx.userId, tenantId: ctx.tenant.id }
 }
 
 export type Session = typeof auth.$Infer.Session

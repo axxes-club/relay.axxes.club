@@ -12,7 +12,7 @@ import { product } from "@/product.config"
 async function AppLayout({ children }: { children: React.ReactNode }) {
   const ctx = await requireContext()
   const items = [
-    { href: "/", label: "Overview" },
+    { href: "/overview", label: "Overview" },
     ...(product.nav ?? []),
     ...product.resources.map((r) => ({ href: `/${r.key}`, label: r.label })),
   ]

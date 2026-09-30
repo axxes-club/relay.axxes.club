@@ -118,23 +118,6 @@ export async function POST(request: NextRequest) {
     // Add current user to participants
     const allParticipantIds = [...new Set([userId, ...participantIds])]
 
-    // For direct messages, check if conversation already exists
-    if (type === "direct" && allParticipantIds.length === 2) {
-      const existingConversation = await findExistingDirectConversation(
-        tenantId,
-        allParticipantIds[0],
-        allParticipantIds[1]
-      )
-
-      if (existingConversation) {
-        return NextResponse.json({
-          success: true,
-          data: existingConversation,
-          existing: true,
-        })
-      }
-    }
-
     // Verify all participants are members of the tenant
     const memberships = await db.query.tenantMemberships.findMany({
       where: and(
@@ -154,7 +137,25 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create conversation
+    // For direct messages, check if conversation already exists
+    if (type === "direct" && allParticipantIds.length === 2) {
+      const existingConversation = await findExistingDirectConversation(
+        tenantId,
+        allParticipantIds[0],
+        allParticipantIds[1]
+      )
+
+      if (existingConversation) {
+        return NextResponse.json({
+          success: true,
+          data: existingConversation,
+          existing: true,
+        })
+      }
+    }
+
+
+  // Create conversation
     const [conversation] = await db
       .insert(conversations)
       .values({

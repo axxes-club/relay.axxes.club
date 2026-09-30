@@ -42,6 +42,7 @@ export function ConversationList({ initialConversations }: ConversationListProps
   React.useEffect(() => {
     if (!session?.user?.id) return
 
+    if (!process.env.NEXT_PUBLIC_PUSHER_KEY || !process.env.NEXT_PUBLIC_PUSHER_CLUSTER) return
     const pusher = getPusherClient()
     const channel = pusher.subscribe(`private-user-${session.user.id}`)
 
@@ -87,7 +88,7 @@ export function ConversationList({ initialConversations }: ConversationListProps
   return (
     <div className="space-y-2">
       {conversations.map((conversation) => (
-        <Link key={conversation.id} href={`/messages/${conversation.id}`}>
+        <Link key={conversation.id} href={`/inbox/${conversation.id}`}>
           <Card
             interactive
             className={cn(

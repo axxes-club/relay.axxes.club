@@ -65,6 +65,6 @@ export async function switchOrganization(tenantId: string): Promise<{ error?: st
 export async function openInOrganization(tenantId: string, path: string): Promise<void> {
   const result = await switchOrganization(tenantId)
   if (result.error) return
-  const safe = path.startsWith("/") && !path.startsWith("//") && !path.includes("\\") && !/[\u0000-\u001f]/.test(path) ? path : "/dashboard"
+  const safe = path.startsWith("/") && !path.startsWith("//") && !path.includes("\\") && !/[\u0000-\u001f]/.test(path) ? path : "/overview"
   redirect(safe)
 }
