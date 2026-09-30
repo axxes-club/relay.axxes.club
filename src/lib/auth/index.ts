@@ -1,4 +1,5 @@
 import { betterAuth } from "better-auth"
+import { resolveAuthBaseURL } from "./base-url"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { db } from "@/lib/db"
 import { loginActivity } from "@/lib/db/schema"
@@ -38,7 +39,7 @@ const trustedOrigins = [
 export const HANDSHAKE_URL = process.env.HANDSHAKE_URL?.replace(/\/$/, "") || null
 
 export const auth = betterAuth({
-  baseURL: process.env.BETTER_AUTH_BASE_URL || "http://localhost:3000",
+  baseURL: resolveAuthBaseURL(process.env),
   trustedOrigins,
   advanced: cookieDomain ? { crossSubDomainCookies: { enabled: true, domain: cookieDomain } } : undefined,
   database: drizzleAdapter(db, {
