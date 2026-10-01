@@ -243,7 +243,7 @@ function ConversationRow({ c, active }: { c: InboxConversation; active: boolean 
         <span className="min-w-0 flex-1">
           <span className="flex items-baseline gap-2">
             <span className={cn("min-w-0 flex-1 truncate text-[15px]", unread ? "font-semibold text-text" : "font-medium text-text/90")}>{c.title}</span>
-            <span className={cn("shrink-0 text-[11px] tabular-nums", unread ? "text-accent" : "text-muted")}>{listTime(c.lastMessageAt)}</span>
+            <span className={cn("shrink-0 text-[11px] tabular-nums", unread ? "text-accent" : "text-muted")}><LocalTime value={c.lastMessageAt} /></span>
           </span>
           <span className="mt-0.5 flex items-center gap-2">
             <span className={cn("min-w-0 flex-1 truncate text-[13px]", unread ? "text-text/85" : "text-muted")}>
@@ -305,6 +305,20 @@ function ListFooter() {
       </button>
     </div>
   )
+}
+
+/**
+ * Times in the viewer's own time zone. The server renders in UTC, so the time is
+ * filled in after hydration rather than rendered on the server and mismatched.
+ */
+function LocalTime({ value }: { value: string | Date | null }) {
+  const [text, setText] = React.useState("")
+  React.useEffect(() => {
+    setText(listTime(value))
+    const t = setInterval(() => setText(listTime(value)), 60_000)
+    return () => clearInterval(t)
+  }, [value])
+  return <>{text}</>
 }
 
 /** A desktop/OS notification, only when the page isn't in front of the person. */
