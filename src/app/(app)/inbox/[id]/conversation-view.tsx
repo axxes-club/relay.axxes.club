@@ -54,6 +54,7 @@ export function ConversationView({ conversation }: ConversationViewProps) {
   const [newMessage, setNewMessage] = React.useState("")
   const [isLoading, setIsLoading] = React.useState(true)
   const [isSending, setIsSending] = React.useState(false)
+  const [sendError, setSendError] = React.useState("")
   const [typingUsers, setTypingUsers] = React.useState<Map<string, string>>(new Map())
   const scrollRef = React.useRef<HTMLDivElement>(null)
   const inputRef = React.useRef<HTMLInputElement>(null)
@@ -81,7 +82,7 @@ export function ConversationView({ conversation }: ConversationViewProps) {
         const response = await fetch(`/api/v1/conversations/${conversation.id}/messages`)
         if (response.ok) {
           const data = await response.json()
-          setMessages(data.data?.messages || [])
+          setMessages(Array.isArray(data.data) ? data.data : [])
         }
       } catch (error) {
         console.error("Failed to load messages:", error)
@@ -90,6 +91,8 @@ export function ConversationView({ conversation }: ConversationViewProps) {
       }
     }
     loadMessages()
+    const interval = setInterval(loadMessages, 10000)
+    return () => clearInterval(interval)
   }, [conversation.id])
 
   // Mark as read on mount and when new messages arrive
@@ -101,11 +104,12 @@ export function ConversationView({ conversation }: ConversationViewProps) {
 
   // Subscribe to Pusher events
   React.useEffect(() => {
+    if (!process.env.NEXT_PUBLIC_PUSHER_KEY || !process.env.NEXT_PUBLIC_PUSHER_CLUSTER) return
     const pusher = getPusherClient()
     const channel = pusher.subscribe(`private-conversation-${conversation.id}`)
 
     channel.bind(PUSHER_EVENTS.NEW_MESSAGE, (message: Message) => {
-      setMessages((prev) => [...prev, message])
+      setMessages((prev) => prev.some(item => item.id === message.id) ? prev : [...prev, message])
       // Mark as read since user is viewing the conversation
       markAsRead(conversation.id)
     })
@@ -184,6 +188,7 @@ export function ConversationView({ conversation }: ConversationViewProps) {
     if (!newMessage.trim() || isSending) return
 
     setIsSending(true)
+    setSendError("")
     const messageContent = newMessage.trim()
     setNewMessage("")
 
@@ -202,11 +207,13 @@ export function ConversationView({ conversation }: ConversationViewProps) {
     }
 
     try {
-      await sendMessage(conversation.id, { content: messageContent, contentType: "text" })
+      const sent = await sendMessage(conversation.id, { content: messageContent, contentType: "text" })
+      setMessages(previous => previous.some(message => message.id === sent.id) ? previous : [...previous, sent as Message])
       router.refresh()
     } catch (error) {
       console.error("Failed to send message:", error)
       setNewMessage(messageContent)
+      setSendError("Could not send your message. Please try again.")
     } finally {
       setIsSending(false)
       inputRef.current?.focus()
@@ -389,6 +396,7 @@ export function ConversationView({ conversation }: ConversationViewProps) {
       {/* Input */}
       <div className="pt-4 border-t">
         <div className="flex gap-2">
+          {sendError && <p role="alert" className="text-sm text-destructive">{sendError}</p>}
           <Input
             ref={inputRef}
             placeholder="Type a message..."
@@ -402,6 +410,7 @@ export function ConversationView({ conversation }: ConversationViewProps) {
             className="flex-1"
           />
           <Button
+            aria-label="Send message"
             onClick={handleSend}
             disabled={!newMessage.trim() || isSending}
           >

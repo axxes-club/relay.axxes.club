@@ -1,3 +1,4 @@
+import { safeReply } from "@/lib/messaging-safety"
 import { NextRequest, NextResponse } from "next/server"
 import { withTenantAccess } from "@/lib/auth/tenant-context"
 import { db } from "@/lib/db"
@@ -45,6 +46,7 @@ export async function GET(
 
     const conditions = [
       eq(messages.conversationId, conversationId),
+      eq(messages.tenantId, tenantId),
       isNull(messages.deletedAt),
     ]
 
@@ -67,7 +69,10 @@ export async function GET(
     })
 
     const hasMore = messageList.length > limit
-    const data = hasMore ? messageList.slice(0, -1) : messageList
+    const data = (hasMore ? messageList.slice(0, -1) : messageList).map(message => ({
+      ...message,
+      replyTo: safeReply(message.replyTo, tenantId, conversationId),
+    }))
 
     return NextResponse.json({
       success: true,
@@ -112,6 +117,11 @@ export async function POST(
         { success: false, error: { message: "Message content required" } },
         { status: 400 }
       )
+    }
+
+    if (replyToId) {
+      const reply = await db.query.messages.findFirst({ where: and(eq(messages.id, replyToId), eq(messages.conversationId, conversationId), eq(messages.tenantId, tenantId), isNull(messages.deletedAt)) })
+      if (!reply) return NextResponse.json({ success: false, error: { message: "Reply message not found" } }, { status: 400 })
     }
 
     // Create message
