@@ -48,7 +48,7 @@ export default async function OverviewPage() {
         <Link href="/inbox" className="btn-primary">
           Open inbox
         </Link>
-        <Link href="/new" className="btn-ghost">
+        <Link href="/inbox/new" className="btn-ghost">
           New conversation
         </Link>
         <Link href="/api-docs" className="btn-ghost">

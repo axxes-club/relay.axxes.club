@@ -132,7 +132,7 @@ export function Sidebar({ items, footer, apps, organization, logo, mark, activeA
 
   return (
     <>
-      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-line bg-bg/90 px-4 py-3 backdrop-blur lg:hidden">
+      <header className="app-mobile-header sticky top-0 z-30 flex items-center justify-between border-b border-line bg-bg/90 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur lg:hidden">
         {logo}
         <button
           className="btn-ghost px-3"

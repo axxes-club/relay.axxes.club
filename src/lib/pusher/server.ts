@@ -45,6 +45,8 @@ export const PUSHER_EVENTS = {
   TYPING_STOP: "typing-stop",
   CONVERSATION_UPDATED: "conversation-updated",
   UNREAD_COUNT_UPDATED: "unread-count-updated",
+  MESSAGE_UPDATED: "message-updated",
+  MESSAGE_DELETED: "message-deleted",
 } as const
 
 export type PusherEventType = (typeof PUSHER_EVENTS)[keyof typeof PUSHER_EVENTS]
