@@ -47,3 +47,43 @@ body { background: var(--bg); color: var(--text); font-family: var(--font-sans);
   aside[data-collapsed="true"] .org-monogram, .org-switcher[data-compact="true"] .org-monogram { display: grid; }
   aside[data-collapsed="true"] .org-trigger, .org-switcher[data-compact="true"] .org-trigger { justify-content: center; border: 0; padding: 0; }
 }
+
+/* ── Relay messaging ─────────────────────────────────────────────────────── */
+
+/* Messaging fills the screen and only the thread scrolls, never the page. */
+html[data-chat] body { overflow: hidden; overscroll-behavior: none; }
+html[data-chat] .relay-app { display: flex; flex-direction: column; height: 100dvh; }
+@media (min-width: 1024px) {
+  html[data-chat] .relay-app { flex-direction: row; }
+}
+.relay-main { min-height: 0; flex: 1 1 auto; }
+
+/* Phones: inside a conversation, the thread's own header replaces the app bar. */
+@media (max-width: 1023px) {
+  html[data-chat="thread"] .app-mobile-header { display: none; }
+}
+
+/* Installed on a desktop with window-controls-overlay: headers become the title bar. */
+@media (display-mode: window-controls-overlay) {
+  .relay-titlebar { padding-top: max(env(titlebar-area-height, 0px), 0.75rem); app-region: drag; -webkit-app-region: drag; }
+  .relay-titlebar :is(a, button, input, label) { app-region: no-drag; -webkit-app-region: no-drag; }
+}
+
+.relay-messages { scrollbar-gutter: stable; scroll-padding-top: 3rem; }
+.relay-messages::-webkit-scrollbar, .relay-list nav::-webkit-scrollbar { width: 8px; }
+.relay-messages::-webkit-scrollbar-thumb, .relay-list nav::-webkit-scrollbar-thumb { background: var(--line); border-radius: 8px; }
+
+.relay-dot { width: 6px; height: 6px; border-radius: 9999px; background: var(--muted); animation: relay-dot 1.2s ease-in-out infinite; }
+@keyframes relay-dot { 0%, 60%, 100% { transform: translateY(0); opacity: .5; } 30% { transform: translateY(-4px); opacity: 1; } }
+
+.relay-flash > div:nth-child(2) > div:not(:first-child), .relay-flash { animation: relay-flash 1.6s ease-out; }
+@keyframes relay-flash { 0%, 35% { background: color-mix(in oklab, var(--accent) 14%, transparent); } 100% { background: transparent; } }
+
+.animate-in { animation: relay-in .16s ease-out; }
+.animate-sheet { animation: relay-sheet .22s cubic-bezier(.2, .8, .2, 1); }
+@keyframes relay-in { from { opacity: 0; transform: translateY(4px) scale(.98); } }
+@keyframes relay-sheet { from { transform: translateY(100%); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-in, .animate-sheet, .relay-dot, .relay-flash { animation: none; }
+}
