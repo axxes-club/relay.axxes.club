@@ -30,6 +30,18 @@
       ]
     },
     {
+      "id": "messaging-security-and-feature-checks",
+      "name": "gcr.io/cloud-builders/docker",
+      "args": [
+        "run",
+        "--rm",
+        "ci-check:$BUILD_ID",
+        "sh",
+        "-ec",
+        "rm -f .env .env.*; npm test && npm run typecheck"
+      ]
+    },
+    {
       "id": "runtime-image",
       "name": "gcr.io/cloud-builders/docker",
       "args": [
