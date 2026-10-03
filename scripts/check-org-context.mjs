@@ -30,5 +30,5 @@ assert.ok(JSON.stringify(conditions).includes('tenants.deletedAt'))
 authenticated=false;assert.ok((await actions.switchOrganization('00000000-0000-4000-8000-000000000002')).error);assert.equal(writes.length,1)
 authenticated=true
 await actions.openInOrganization('00000000-0000-4000-8000-000000000002','/\\evil.example')
-assert.equal(redirects[0],'/dashboard')
+assert.equal(redirects[0],'/overview')
 console.log('Organization context: selected, forged, hinted, missing membership and signed-out checks passed')

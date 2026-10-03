@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test": "node scripts/check-auth-base-url.mjs && node scripts/check-org-context.mjs && node scripts/check-organization-open.mjs /overview && node scripts/check-messaging-access.mjs && node scripts/check-modern-messaging.mjs",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",

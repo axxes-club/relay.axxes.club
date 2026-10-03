@@ -6,6 +6,7 @@ import { BrandScope } from "@/components/brand"
 import { getCustomerBrand } from "@/lib/white-label"
 import { requireContext } from "@/lib/context"
 import { Sidebar } from "@/components/sidebar"
+import { MainFrame } from "@/components/main-frame"
 import { SignOut } from "@/components/sign-out"
 import { Logo, LogoMark } from "@/components/logo"
 import { product } from "@/product.config"
@@ -19,7 +20,7 @@ async function AppLayout({ children }: { children: React.ReactNode }) {
   ]
 
   return (
-    <div className="lg:flex">
+    <div className="relay-app lg:flex">
       <PulseTracker appKey="relay" tenantId={ctx.tenant.id} userId={ctx.userId}/>
       <Sidebar
         items={items}
@@ -39,9 +40,7 @@ async function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         }
       />
-      <main className="min-w-0 flex-1 px-4 py-8 sm:px-8 lg:py-12">
-        <div className="mx-auto max-w-6xl">{children}</div>
-      </main>
+      <MainFrame>{children}</MainFrame>
     </div>
   )
 }

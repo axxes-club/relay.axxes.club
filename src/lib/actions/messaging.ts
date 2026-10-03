@@ -12,6 +12,7 @@ import { eq, and, desc, sql, inArray, ne, isNull } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { assertConversationAccess } from "@/lib/messaging-access"
+import { REACTIONS } from "@/lib/chat/reactions"
 import { getAuthContext } from "@/lib/auth"
 import {
   getPusherServer,
@@ -53,6 +54,7 @@ type ParticipantWithUser = {
   conversationId: string
   userId: string
   isAdmin: boolean | null
+  lastReadAt: Date | null
   user: { id: string; name: string; email: string; image: string | null } | null
 }
 
@@ -177,7 +179,7 @@ export async function getConversation(conversationId: string) {
 
   // The nested `with: { participants: { with: { user: true } } }` widens the
   // participants collection to a row-or-array union, so it is named before use.
-  const conversation = participant.conversation as typeof participant.conversation & {
+  const conversation = participant.conversation as unknown as typeof conversations.$inferSelect & {
     participants: ParticipantWithUser[]
   }
 
@@ -189,7 +191,11 @@ export async function getConversation(conversationId: string) {
       name: p.user?.name || "Unknown",
       image: p.user?.image ?? null,
       isAdmin: p.isAdmin,
+      lastReadAt: p.lastReadAt,
     })),
+    isMuted: participant.isMuted,
+    isPinned: participant.isPinned,
+    selfId: userId,
   }
 }
 
@@ -340,6 +346,9 @@ export async function sendMessage(
     ),
   })
 
+  const conversationName =
+    (await db.query.conversations.findFirst({ where: eq(conversations.id, conversationId), columns: { name: true } }))?.name ?? null
+
   // Trigger Pusher events
   try {
     const pusher = getPusherServer()
@@ -358,6 +367,11 @@ export async function sendMessage(
           {
             conversationId,
             unreadCount: p.unreadCount + 1,
+            // Enough for a notification without another round trip.
+            preview: preview,
+            senderName: sender?.name ?? "Someone",
+            conversationName,
+            sentAt: message.createdAt,
           }
         )
       }
@@ -497,4 +511,131 @@ async function findExistingDirectConversation(
   `)
 
   return result.rows[0] || null
+}
+
+
+// ── Relay: inbox, reactions, edits, deletes, pin & mute ──────────────────────
+
+/** The signed-in person, for rendering "you" without waiting on the client session. */
+export async function getMe() {
+  const { userId } = await getAuthContext()
+  const me = await db.query.user.findFirst({ where: eq(user.id, userId) })
+  return { id: userId, name: me?.name ?? "You", image: me?.image ?? null }
+}
+
+/**
+ * Everything the inbox needs in one round trip. Direct conversations are titled
+ * by the *other* person here, on the server, so the first paint never shows
+ * your own name on a DM.
+ */
+export async function getInboxData() {
+  const [me, list] = await Promise.all([getMe(), getConversations()])
+  return {
+    me,
+    conversations: list.map((c) => {
+      const others = c.participants.filter((p) => p.userId !== me.id)
+      const title =
+        c.type === "group"
+          ? c.name || others.map((p) => p.name.split(" ")[0]).join(", ") || "Group"
+          : others[0]?.name || "Just you"
+      return { ...c, title, others }
+    }),
+  }
+}
+
+type MessageMeta = { reactions?: Record<string, string[]> } & Record<string, unknown>
+
+async function ownMessage(messageId: string, mustBeSender: boolean) {
+  const { userId, tenantId } = await getAuthContext()
+  if (!/^[0-9a-f-]{36}$/i.test(messageId)) throw new Error("Message not found")
+  const message = await db.query.messages.findFirst({
+    where: and(eq(messages.id, messageId), eq(messages.tenantId, tenantId), isNull(messages.deletedAt)),
+  })
+  if (!message) throw new Error("Message not found")
+  await assertConversationAccess(message.conversationId, userId, tenantId)
+  if (mustBeSender && message.senderId !== userId) throw new Error("You can only change your own messages")
+  return { message, userId, tenantId }
+}
+
+async function broadcast(conversationId: string, event: string, payload: unknown) {
+  try {
+    await getPusherServer().trigger(getConversationChannel(conversationId), event, payload)
+  } catch (error) {
+    console.error("Pusher trigger failed:", error)
+  }
+}
+
+/** Adds the reaction if you haven't, removes it if you have. */
+export async function toggleReaction(messageId: string, emoji: string) {
+  if (!(REACTIONS as readonly string[]).includes(emoji)) throw new Error("Unsupported reaction")
+  const { message, userId } = await ownMessage(messageId, false)
+  const meta = { ...((message.metadata ?? {}) as MessageMeta) }
+  const reactions = { ...(meta.reactions ?? {}) }
+  const people = new Set(reactions[emoji] ?? [])
+  if (people.has(userId)) people.delete(userId)
+  else people.add(userId)
+  if (people.size) reactions[emoji] = [...people]
+  else delete reactions[emoji]
+  meta.reactions = reactions
+  await db.update(messages).set({ metadata: meta, updatedAt: new Date() }).where(eq(messages.id, messageId))
+  const update = { id: messageId, metadata: meta }
+  await broadcast(message.conversationId, PUSHER_EVENTS.MESSAGE_UPDATED, update)
+  return update
+}
+
+async function refreshPreview(conversationId: string) {
+  const latest = await db.query.messages.findFirst({
+    where: and(eq(messages.conversationId, conversationId), isNull(messages.deletedAt)),
+    orderBy: desc(messages.createdAt),
+  })
+  await db
+    .update(conversations)
+    .set({
+      lastMessagePreview: latest ? (latest.content.length > 100 ? latest.content.slice(0, 100) + "..." : latest.content) : null,
+      lastMessageAt: latest?.createdAt ?? null,
+      updatedAt: new Date(),
+    })
+    .where(eq(conversations.id, conversationId))
+}
+
+/** Edits your own message. The change is marked "edited" for everyone. */
+export async function editMessage(messageId: string, content: string) {
+  const text = z.string().trim().min(1, "Message can't be empty").max(10000).parse(content)
+  const { message } = await ownMessage(messageId, true)
+  const editedAt = new Date()
+  await db.update(messages).set({ content: text, isEdited: true, editedAt, updatedAt: editedAt }).where(eq(messages.id, messageId))
+  await refreshPreview(message.conversationId)
+  const update = { id: messageId, content: text, isEdited: true, editedAt }
+  await broadcast(message.conversationId, PUSHER_EVENTS.MESSAGE_UPDATED, update)
+  return update
+}
+
+/** Removes your own message for everyone. The row is kept (soft delete). */
+export async function deleteMessage(messageId: string) {
+  const { message } = await ownMessage(messageId, true)
+  await db.update(messages).set({ deletedAt: new Date(), updatedAt: new Date() }).where(eq(messages.id, messageId))
+  await refreshPreview(message.conversationId)
+  await broadcast(message.conversationId, PUSHER_EVENTS.MESSAGE_DELETED, { id: messageId })
+  return { id: messageId }
+}
+
+async function setParticipantFlag(conversationId: string, patch: { isPinned?: boolean; isMuted?: boolean }) {
+  const { userId, tenantId } = await getAuthContext()
+  await assertConversationAccess(conversationId, userId, tenantId)
+  await db
+    .update(conversationParticipants)
+    .set({ ...patch, updatedAt: new Date() })
+    .where(and(eq(conversationParticipants.conversationId, conversationId), eq(conversationParticipants.userId, userId)))
+  revalidatePath("/inbox")
+  return { conversationId, ...patch }
+}
+
+/** Pins a conversation to the top of your inbox (just for you). */
+export async function setPinned(conversationId: string, isPinned: boolean) {
+  return setParticipantFlag(conversationId, { isPinned })
+}
+
+/** Mutes a conversation's notifications (just for you). */
+export async function setMuted(conversationId: string, isMuted: boolean) {
+  return setParticipantFlag(conversationId, { isMuted })
 }
