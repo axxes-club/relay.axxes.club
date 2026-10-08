@@ -6,8 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "node scripts/check-auth-base-url.mjs && node scripts/check-org-context.mjs && node scripts/check-organization-open.mjs /overview && node scripts/check-messaging-access.mjs && node scripts/check-modern-messaging.mjs",
-    "typecheck": "tsc --noEmit"
+    "test": "node scripts/check-auth-base-url.mjs && node scripts/check-org-context.mjs && node scripts/check-organization-open.mjs /overview && node scripts/check-messaging-access.mjs && node scripts/check-modern-messaging.mjs && node --import tsx --test tests/security-signup.test.ts",
+    "typecheck": "tsc --noEmit",
+    "test:security": "node --import tsx --test tests/security-signup.test.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
@@ -55,6 +56,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "tailwindcss": "^4",
+    "tsx": "4.23.15",
     "typescript": "^5"
   },
   "overrides": {}

@@ -1,3 +1,5 @@
+import {APIError} from 'better-auth/api';
+import {guardAccountAuth,assertActiveAccount} from '@/lib/security/admission-server';
 import { betterAuth } from "better-auth"
 import { resolveAuthBaseURL } from "./base-url"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
@@ -36,13 +38,15 @@ const trustedOrigins = [
 // Central AXXES sign-in; when unset the portal uses its own sign-in pages
 export const HANDSHAKE_URL = process.env.HANDSHAKE_URL?.replace(/\/$/, "") || null
 
-export const auth = betterAuth({
+const baseAuth = betterAuth({
   baseURL: resolveAuthBaseURL(process.env),
   trustedOrigins,
   advanced: cookieDomain ? { crossSubDomainCookies: { enabled: true, domain: cookieDomain } } : undefined,
   database: drizzleAdapter(db, {
     provider: "pg",
   }),
+  // Shared identity enrollment is controlled by Handshake invite creation.
+  disabledPaths: ["/sign-up/email"],
   emailAndPassword: {
     enabled: true,
     sendResetPassword: async ({ user, url }) => {
@@ -61,6 +65,7 @@ export const auth = betterAuth({
   databaseHooks: {
     session: {
       create: {
+        before:async(session)=>{try{await assertActiveAccount(session.userId);}catch{throw new APIError('FORBIDDEN',{message:'Account access is unavailable.'});}return {data:session};},
         after: async (session) => {
           // Log login event when a new session is created
           try {
@@ -88,3 +93,5 @@ export async function getAuthContext() {
 }
 
 export type Session = typeof auth.$Infer.Session
+
+export const auth=guardAccountAuth(baseAuth);

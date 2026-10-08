@@ -1,3 +1,4 @@
+import {wrapAdmission} from '@/lib/security/admission-server';
 import { NextRequest, NextResponse } from "next/server"
 import { withTenantAccess } from "@/lib/auth/tenant-context"
 import { db } from "@/lib/db"
@@ -10,7 +11,7 @@ import {
 } from "@/lib/pusher/server"
 
 // POST /api/v1/conversations/[id]/typing
-export async function POST(
+async function POSTHandler(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -60,3 +61,5 @@ export async function POST(
     return NextResponse.json({ success: true })
   })
 }
+
+export const POST=wrapAdmission(POSTHandler,'src/app/api/v1/conversations/[id]/typing/route.ts'+':POST',3000);

@@ -1,9 +1,10 @@
+import {wrapAdmission} from '@/lib/security/admission-server';
 import { NextRequest, NextResponse } from "next/server"
 import { withTenantAccess } from "@/lib/auth/tenant-context"
 import { assertConversationAccess } from "@/lib/messaging-access"
 import { getPusherServer } from "@/lib/pusher/server"
 
-export async function POST(request: NextRequest) {
+async function POSTHandler(request: NextRequest) {
   return withTenantAccess(request, async (tenantId, userId) => {
     const form = await request.formData()
     const socketId = String(form.get("socket_id") || "")
@@ -19,3 +20,5 @@ export async function POST(request: NextRequest) {
     catch { return NextResponse.json({ error: "Realtime unavailable" }, { status: 503 }) }
   })
 }
+
+export const POST=wrapAdmission(POSTHandler,'src/app/api/v1/pusher/auth/route.ts'+':POST',3000);
