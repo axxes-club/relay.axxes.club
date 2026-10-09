@@ -6,8 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "node scripts/check-auth-base-url.mjs && node scripts/check-org-context.mjs && node scripts/check-organization-open.mjs /overview && node scripts/check-messaging-access.mjs && node scripts/check-modern-messaging.mjs",
-    "typecheck": "tsc --noEmit"
+    "test": "node scripts/check-auth-base-url.mjs && node scripts/check-org-context.mjs && node scripts/check-organization-open.mjs /overview && node scripts/check-messaging-access.mjs && node scripts/check-modern-messaging.mjs && node --import tsx --test tests/security-signup.test.ts",
+    "typecheck": "tsc --noEmit",
+    "test:security": "node --import tsx --test tests/security-signup.test.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
@@ -31,13 +32,13 @@
     "@radix-ui/react-switch": "^1.3.7",
     "@radix-ui/react-tabs": "^1.1.21",
     "@types/nodemailer": "^8.0.2",
-    "better-auth": "^1.4.19",
+    "better-auth": "1.6.33",
     "class-variance-authority": "^0.7.1",
     "date-fns": "^4.4.0",
     "drizzle-orm": "^0.45.1",
     "lucide-react": "^1.48.0",
-    "next": "16.3.6",
-    "nodemailer": "^10.0.12",
+    "next": "16.3.8",
+    "nodemailer": "10.0.16",
     "pg": "8.23.1",
     "pusher": "^5.3.4",
     "pusher-js": "^8.6.0",
@@ -55,6 +56,8 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "tailwindcss": "^4",
+    "tsx": "4.23.15",
     "typescript": "^5"
-  }
+  },
+  "overrides": {}
 }

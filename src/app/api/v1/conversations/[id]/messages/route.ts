@@ -1,3 +1,4 @@
+import {wrapAdmission} from '@/lib/security/admission-server';
 import { safeReply } from "@/lib/messaging-safety"
 import { NextRequest, NextResponse } from "next/server"
 import { withTenantAccess } from "@/lib/auth/tenant-context"
@@ -17,7 +18,7 @@ import {
 } from "@/lib/pusher/server"
 
 // GET /api/v1/conversations/[id]/messages
-export async function GET(
+async function GETHandler(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -83,7 +84,7 @@ export async function GET(
 }
 
 // POST /api/v1/conversations/[id]/messages
-export async function POST(
+async function POSTHandler(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -219,3 +220,7 @@ export async function POST(
     return NextResponse.json({ success: true, data: messageWithSender })
   })
 }
+
+export const GET=wrapAdmission(GETHandler,'src/app/api/v1/conversations/[id]/messages/route.ts'+':GET',12000);
+
+export const POST=wrapAdmission(POSTHandler,'src/app/api/v1/conversations/[id]/messages/route.ts'+':POST',3000);

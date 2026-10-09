@@ -1,3 +1,4 @@
+import {wrapAdmission} from '@/lib/security/admission-server';
 import { NextRequest, NextResponse } from "next/server"
 import { withTenantAccess } from "@/lib/auth/tenant-context"
 import { db } from "@/lib/db"
@@ -9,7 +10,7 @@ import {
 import { eq, and, desc, sql, inArray, isNull } from "drizzle-orm"
 
 // GET /api/v1/conversations - List user's conversations
-export async function GET(request: NextRequest) {
+async function GETHandler(request: NextRequest) {
   return withTenantAccess(request, async (tenantId, userId) => {
     // Get all conversations where user is a participant
     const userConversations = await db
@@ -99,7 +100,7 @@ export async function GET(request: NextRequest) {
 }
 
 // POST /api/v1/conversations - Create a new conversation
-export async function POST(request: NextRequest) {
+async function POSTHandler(request: NextRequest) {
   return withTenantAccess(request, async (tenantId, userId) => {
     const body = await request.json()
     const { participantIds, name, type = "direct" } = body
@@ -211,3 +212,7 @@ async function findExistingDirectConversation(
 
   return result.rows[0] || null
 }
+
+export const GET=wrapAdmission(GETHandler,'src/app/api/v1/conversations/route.ts'+':GET',12000);
+
+export const POST=wrapAdmission(POSTHandler,'src/app/api/v1/conversations/route.ts'+':POST',3000);
